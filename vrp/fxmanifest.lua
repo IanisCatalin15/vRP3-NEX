@@ -24,7 +24,8 @@ server_script {
   "modules/weapon.lua",
   "modules/log.lua",
   "modules/hours.lua",
-  "modules/vehicle.lua"
+  "modules/vehicle.lua",
+  "modules/bank.lua",
 }
 
 client_scripts {
