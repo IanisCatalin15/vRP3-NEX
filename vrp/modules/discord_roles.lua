@@ -5,15 +5,6 @@ local cfg = module("vrp", "cfg/discord_roles")
 local discord_cache = {}
 local CACHE_COOLDOWN = cfg.cooldown or 60 -- in seconds
 
--- Helpers
-local function splitString(str, sep)
-    local result = {}
-    for part in string.gmatch(str, "([^" .. sep .. "]+)") do
-        table.insert(result, part)
-    end
-    return result
-end
-
 local function contains(tbl, value)
     for _, v in ipairs(tbl) do
         if v == value then
@@ -26,8 +17,8 @@ end
 local function getDiscordID(source)
     local identifiers = GetPlayerIdentifiers(source)
     for _, identifier in ipairs(identifiers) do
-        local type, value = table.unpack(splitString(identifier, ':'))
-        if type == 'discord' and value and value:match("^%d+$") then
+        local type, value = identifier:match("([^:]+):(.+)")
+        if type == "discord" and value and value:match("^%d+$") then
             return value
         end
     end
