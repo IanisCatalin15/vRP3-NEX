@@ -23,7 +23,8 @@ server_script {
   "modules/player_state.lua",
   "modules/weapon.lua",
   "modules/log.lua",
-  "modules/hours.lua"
+  "modules/hours.lua",
+  "modules/vehicle.lua"
 }
 
 client_scripts {
@@ -37,7 +38,8 @@ client_scripts {
   "client/misc.lua",
   "client/player_state.lua",
   "client/weapon.lua",
-  "client/hours.lua"
+  "client/hours.lua",
+  "client/vehicle.lua"
 
 }
 

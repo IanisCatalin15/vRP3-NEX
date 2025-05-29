@@ -18,6 +18,7 @@ local modules = {
   money = true,
   logs = true, -- discord logs
   hours = true, -- hours played tracking
+  vehicle = true
 }
 
 return modules
