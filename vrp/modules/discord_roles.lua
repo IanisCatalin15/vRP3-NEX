@@ -129,10 +129,12 @@ local function checkPlayerRoles(user, force)
         vRP.EXT.Base.remote._notifyPicture(user.source, "CHAR_LESTER", 1, "Discord Sync", "Faction Assigned", "You joined '" .. faction_group .. "' as rank " .. faction_grade .. ".")
     end
 end
-
-
+-- Extension constructor
 function Discord_Roles:__construct()
   vRP.Extension.__construct(self)
+ 
+  self.cfg = module("cfg/discord_roles")
+  self:log(#self.cfg.groups.." Groups")
 
   vRP.EXT.GUI:registerMenuBuilder("admin.users.user", function(menu)
     local adminUser = menu.user
@@ -146,7 +148,6 @@ function Discord_Roles:__construct()
     end
   end)
 end
-
 
 -- Events
 Discord_Roles.event = {}
