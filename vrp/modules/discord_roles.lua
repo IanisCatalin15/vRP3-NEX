@@ -1,4 +1,4 @@
-local discord_roles = class("discord_roles", vRP.Extension)
+local Discord_Roles = class("Discord_Roles", vRP.Extension)
 local cfg = module("vrp", "cfg/discord_roles")
 
 -- Internal cache
@@ -31,7 +31,7 @@ local function getDiscordID(source)
             return value
         end
     end
-    print("[discord_roles] [WARN] No valid Discord ID for player " .. source)
+    print("[Discord_Roles] [WARN] No valid Discord ID for player " .. source)
     return nil
 end
 
@@ -52,11 +52,11 @@ local function fetchDiscordMember(guild_id, user_id)
             if success and parsed then
                 r(parsed)
             else
-                print("[discord_roles] [ERROR] Failed to parse Discord response.")
+                print("[Discord_Roles] [ERROR] Failed to parse Discord response.")
                 r(nil)
             end
         else
-            print("[discord_roles] [ERROR] Discord API returned HTTP code " .. code)
+            print("[Discord_Roles] [ERROR] Discord API returned HTTP code " .. code)
             r(nil)
         end
     end, 'GET', '', { ["Authorization"] = cfg.token })
@@ -77,34 +77,68 @@ local function checkPlayerRoles(user, force)
     end
 
     if not member.roles or type(member.roles) ~= "table" then
-        print("[discord_roles] [WARN] No roles found for user " .. user.id)
+        print("[Discord_Roles] [WARN] No roles found for user " .. user.id)
         return
     end
+
+    local cfg_groups = vRP.EXT.Group.cfg.groups
+
+    -- Track highest-grade group for factions
+    local faction_group, faction_grade
 
     for _, entry in ipairs(cfg.groups or {}) do
         if entry.roleId and entry.group then
             local hasRole = contains(member.roles, entry.roleId)
-            local hasGroup = user:hasGroup(entry.group)
+            local group_cfg = cfg_groups[entry.group]
 
-            if hasRole and not hasGroup then
-                user:addGroup(entry.group)
-                vRP.EXT.Base.remote._notify(user.source,  "You have been assigned the '" .. entry.group .. "' role.")
-            elseif not hasRole and hasGroup then
+            -- Determine if this is a faction
+            local isFaction = group_cfg and group_cfg._config and group_cfg._config.gtype == "faction"
+
+            if hasRole then
+                if isFaction and entry.grade then
+                    -- Compare and keep the highest grade
+                    if not faction_grade or entry.grade > faction_grade then
+                        faction_group = entry.group
+                        faction_grade = entry.grade
+                    end
+                elseif not user:hasGroup(entry.group) then
+                    user:addGroup(entry.group)
+                    vRP.EXT.Base.remote._notify(user.source, "You have been assigned the '" .. entry.group .. "' group.")
+                end
+            elseif user:hasGroup(entry.group) then
                 user:removeGroup(entry.group)
-                vRP.EXT.Base.remote._notify(user.source,  "Role Removed", "Your " .. entry.group .. " role has been removed.")
+                vRP.EXT.Base.remote._notify(user.source, "Your '" .. entry.group .. "' group has been removed.")
             end
         end
     end
+
+    -- Handle faction assignment
+    if faction_group and not user:hasGroup(faction_group) then
+        -- Remove current faction group
+        for k, _ in pairs(user:getGroups()) do
+            local g = cfg_groups[k]
+            if g and g._config and g._config.gtype == "faction" then
+                user:removeGroup(k)
+            end
+        end
+
+        -- Assign new faction and grade
+        user.cdata.faction_grade = faction_grade
+        user:addGroup(faction_group)
+
+        vRP.EXT.Base.remote._notifyPicture(user.source, "CHAR_LESTER", 1, "Discord Sync", "Faction Assigned", "You joined '" .. faction_group .. "' as rank " .. faction_grade .. ".")
+    end
 end
 
-function discord_roles:__construct()
+
+function Discord_Roles:__construct()
   vRP.Extension.__construct(self)
 
   vRP.EXT.GUI:registerMenuBuilder("admin.users.user", function(menu)
     local adminUser = menu.user
     local targetUser = vRP.users[menu.data.id]
 
-    if targetUser and adminUser:hasPermission("player.sync.roles") then
+    if targetUser and adminUser:hasPermission(cfg.permission) then
       menu:addOption("Sync Discord Roles", function(menu)
         checkPlayerRoles(targetUser, true)
         vRP.EXT.Base.remote._notify(adminUser.source, "Synced roles for " .. targetUser.id)
@@ -115,10 +149,10 @@ end
 
 
 -- Events
-discord_roles.event = {}
+Discord_Roles.event = {}
 
-function discord_roles.event:characterLoad(user)
+function Discord_Roles.event:characterLoad(user)
     checkPlayerRoles(user, false) -- use cache
 end
 
-vRP:registerExtension(discord_roles)
+vRP:registerExtension(Discord_Roles)
