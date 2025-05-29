@@ -5,12 +5,15 @@ if not vRP.modules.group then return end
 
 local lang = vRP.lang
 
--- This module defines the group/permission system (per character)
--- Multiple groups can be set to the same player, but the gtype config option can be used to set some groups as unique
+-- Core Group System
 local Group = class("Group", vRP.Extension)
 
 -- SUBCLASS
 Group.User = class("User")
+
+------------------------------------------
+-- Core Group Methods
+------------------------------------------
 
 -- Check if user has a specific group
 function Group.User:hasGroup(name)
@@ -20,40 +23,6 @@ end
 -- Return map of groups
 function Group.User:getGroups()
   return self.cdata.groups
-end
-
--- Get the user's faction grade
-function Group.User:getFactionGrade()
-  return self.cdata.faction_grade
-end
-
--- Get the user's current faction group
-function Group.User:getFactionGroup()
-  for group, _ in pairs(self.cdata.groups) do
-    local cfg = vRP.EXT.Group.cfg.groups[group]
-    if cfg and cfg._config and cfg._config.gtype == "faction" then
-      return group
-    end
-  end
-  return nil
-end
-
--- Check if user is on faction duty
-function Group.User:isOnFactionDuty()
-  return self.cdata.faction_duty == 1
-end
-
--- Set faction duty
-function Group.User:setFactionDuty(state)
-  local faction = self:getFactionGroup()
-  if faction then
-    self.cdata.faction_duty = state and 1 or 0
-    if self.cdata.faction_duty == 1 then
-      vRP.EXT.Base.remote._notify(self.source, "You are now ~g~On Duty~s~.")
-    else
-      vRP.EXT.Base.remote._notify(self.source, "You are now ~r~Off Duty~s~.")
-    end
-  end
 end
 
 function Group.User:addGroup(name)
@@ -98,7 +67,7 @@ function Group.User:removeGroup(name)
 
   groups[name] = nil
 
-  -- Clear faction grade if it's a faction group
+  -- Clear faction data if it's a faction group
   if gtype == "faction" then
     self.cdata.faction_grade = nil
     self.cdata.faction_duty = 0
@@ -106,24 +75,50 @@ function Group.User:removeGroup(name)
 
   vRP:triggerEvent("playerLeaveGroup", self, name, gtype)
 end
-  
--- Get user group by type
--- Return group name or nil
-function Group.User:getGroupByType(gtype)
-  local groups = self:getGroups()
-  local cfg = vRP.EXT.Group.cfg
 
-  for k, v in pairs(groups) do
-    local kgroup = cfg.groups[k]
-    if kgroup then
-      if kgroup._config and kgroup._config.gtype and kgroup._config.gtype == gtype then
-        return k
-      end
+------------------------------------------
+-- Faction System Methods
+------------------------------------------
+
+-- Get the user's faction grade
+function Group.User:getFactionGrade()
+  return self.cdata.faction_grade
+end
+
+-- Get the user's current faction group
+function Group.User:getFactionGroup()
+  for group, _ in pairs(self.cdata.groups) do
+    local cfg = vRP.EXT.Group.cfg.groups[group]
+    if cfg and cfg._config and cfg._config.gtype == "faction" then
+      return group
+    end
+  end
+  return nil
+end
+
+-- Check if user is on faction duty
+function Group.User:isOnFactionDuty()
+  return self.cdata.faction_duty == 1
+end
+
+-- Set faction duty
+function Group.User:setFactionDuty(state)
+  local faction = self:getFactionGroup()
+  if faction then
+    self.cdata.faction_duty = state and 1 or 0
+    if self.cdata.faction_duty == 1 then
+      vRP.EXT.Base.remote._notify(self.source, "You are now ~g~On Duty~s~.")
+    else
+      vRP.EXT.Base.remote._notify(self.source, "You are now ~r~Off Duty~s~.")
     end
   end
 end
 
--- Check if the user has a specific permission
+------------------------------------------
+-- Permission System
+------------------------------------------
+
+-- Check if user has a specific permission
 function Group.User:hasPermission(perm)
   local fchar = string.sub(perm, 1, 1)
 
@@ -177,7 +172,9 @@ function Group.User:hasPermissions(perms)
   return true
 end
 
--- PRIVATE METHODS
+------------------------------------------
+-- Menu System
+------------------------------------------
 
 -- Menu: group_selector
 local function menu_group_selector(self)
@@ -215,100 +212,6 @@ local function menu_group_selector(self)
 
       if group_name and title then
         menu:addOption(title, m_select, nil, entry) 
-      end
-    end
-  end)
-end
-
--- Menu: admin users user
-local function menu_user_groups(self)
-  local function m_groups(menu, index)
-    local user = menu.user
-    local tuser = vRP.users[menu.data.id]
-
-    local groups_str = ""
-    local cfg = vRP.EXT.Group.cfg
-
-    if tuser and tuser:isReady() then
-      for group in pairs(tuser.cdata.groups) do
-        local group_name = group
-        local grade_str = ""
-
-        -- Check if group is a faction to add grade info
-        local gcfg = cfg.groups[group]
-        if gcfg and gcfg._config and gcfg._config.gtype == "faction" then
-          local grade = tuser.cdata.faction_grade
-          local grade_info = gcfg._config.grades[grade]
-          if grade_info then
-            grade_str = " ( " .. grade_info.name .. " )"
-          end
-        end
-
-        groups_str = groups_str .. group_name .. grade_str .. "  "
-      end
-    end
-
-    menu:updateOption(index, nil, lang.admin.users.user.groups.description({groups_str}))
-  end
-
-  local function m_addgroup(menu)
-    local user = menu.user
-    local tuser = vRP.users[menu.data.id]
-
-    if tuser then
-      local group = user:prompt("Group name to add:", "")
-      local cfg = vRP.EXT.Group.cfg
-      local gcfg = cfg.groups[group]
-
-      if gcfg and gcfg._config and gcfg._config.gtype == "faction" then
-        local grades = gcfg._config.grades or {}
-        local grade_list = {}
-
-        for k, v in pairs(grades) do
-          table.insert(grade_list, string.format("%d - %s", k, v.name or "Unnamed"))
-        end
-
-        table.sort(grade_list)
-
-        local grade_prompt = "Available grades:\n" .. table.concat(grade_list, "\n")
-        local grade = tonumber(user:prompt("Faction grade (number):", grade_prompt)) or 1
-        tuser.cdata.faction_grade = grade
-      end
-
-      -- Remove existing faction if needed
-      for k, v in pairs(tuser:getGroups()) do
-        local g = cfg.groups[k]
-        if g and g._config and g._config.gtype == "faction" then
-          tuser:removeGroup(k)
-        end
-      end
-
-      tuser:addGroup(group)
-    end
-  end
-
-  local function m_removegroup(menu)
-    local user = menu.user
-    local tuser = vRP.users[menu.data.id]
-
-    if tuser then
-      local group = user:prompt(lang.admin.users.user.group_remove.prompt(), "")
-      tuser:removeGroup(group)
-    end
-  end
-
-  vRP.EXT.GUI:registerMenuBuilder("user.groups", function(menu)
-    menu.title = "Groups"
-    local user = menu.user
-    local tuser = vRP.users[menu.data.id]
-
-    if tuser then
-      menu:addOption(lang.admin.users.user.groups.title(), m_groups, lang.admin.users.user.groups.description())
-      if user:hasPermission("player.group.add") then
-        menu:addOption(lang.admin.users.user.group_add.title(), m_addgroup)
-      end
-      if user:hasPermission("player.group.remove") then
-        menu:addOption(lang.admin.users.user.group_remove.title(), m_removegroup)
       end
     end
   end)
@@ -535,6 +438,104 @@ local function menu_manage_faction(self)
   end)
 end
 
+-- Menu: admin users user
+local function menu_user_groups(self)
+  local function m_groups(menu, index)
+    local user = menu.user
+    local tuser = vRP.users[menu.data.id]
+
+    local groups_str = ""
+    local cfg = vRP.EXT.Group.cfg
+
+    if tuser and tuser:isReady() then
+      for group in pairs(tuser.cdata.groups) do
+        local group_name = group
+        local grade_str = ""
+
+        -- Check if group is a faction to add grade info
+        local gcfg = cfg.groups[group]
+        if gcfg and gcfg._config and gcfg._config.gtype == "faction" then
+          local grade = tuser.cdata.faction_grade
+          local grade_info = gcfg._config.grades[grade]
+          if grade_info then
+            grade_str = " ( " .. grade_info.name .. " )"
+          end
+        end
+
+        groups_str = groups_str .. group_name .. grade_str .. "  "
+      end
+    end
+
+    menu:updateOption(index, nil, lang.admin.users.user.groups.description({groups_str}))
+  end
+
+  local function m_addgroup(menu)
+    local user = menu.user
+    local tuser = vRP.users[menu.data.id]
+
+    if tuser then
+      local group = user:prompt("Group name to add:", "")
+      local cfg = vRP.EXT.Group.cfg
+      local gcfg = cfg.groups[group]
+
+      if gcfg and gcfg._config and gcfg._config.gtype == "faction" then
+        local grades = gcfg._config.grades or {}
+        local grade_list = {}
+
+        for k, v in pairs(grades) do
+          table.insert(grade_list, string.format("%d - %s", k, v.name or "Unnamed"))
+        end
+
+        table.sort(grade_list)
+
+        local grade_prompt = "Available grades:\n" .. table.concat(grade_list, "\n")
+        local grade = tonumber(user:prompt("Faction grade (number):", grade_prompt)) or 1
+        tuser.cdata.faction_grade = grade
+      end
+
+      -- Remove existing faction if needed
+      for k, v in pairs(tuser:getGroups()) do
+        local g = cfg.groups[k]
+        if g and g._config and g._config.gtype == "faction" then
+          tuser:removeGroup(k)
+        end
+      end
+
+      tuser:addGroup(group)
+    end
+  end
+
+  local function m_removegroup(menu)
+    local user = menu.user
+    local tuser = vRP.users[menu.data.id]
+
+    if tuser then
+      local group = user:prompt(lang.admin.users.user.group_remove.prompt(), "")
+      tuser:removeGroup(group)
+    end
+  end
+
+  vRP.EXT.GUI:registerMenuBuilder("user.groups", function(menu)
+    menu.title = "Groups"
+    local user = menu.user
+    local tuser = vRP.users[menu.data.id]
+
+    if tuser then
+      menu:addOption(lang.admin.users.user.groups.title(), m_groups, lang.admin.users.user.groups.description())
+      if user:hasPermission("player.group.add") then
+        menu:addOption(lang.admin.users.user.group_add.title(), m_addgroup)
+      end
+      if user:hasPermission("player.group.remove") then
+        menu:addOption(lang.admin.users.user.group_remove.title(), m_removegroup)
+      end
+    end
+  end)
+end
+
+------------------------------------------
+-- Paycheck System
+------------------------------------------
+
 function Group:taskPaycheck()
   for faction_name, group_cfg in pairs(self.cfg.groups) do
     if group_cfg._config and group_cfg._config.gtype == "faction" then
@@ -561,8 +562,9 @@ function Group:taskPaycheck()
   end
 end
 
-
--- METHODS
+------------------------------------------
+-- Extension Constructor
+------------------------------------------
 
 function Group:__construct()
   vRP.Extension.__construct(self)
@@ -571,12 +573,11 @@ function Group:__construct()
   self.func_perms = {}
   self.paychecks_elapsed = {} -- faction name => elapsed minutes
 
-  -- register not fperm (negate another fperm)
+  -- Register permission functions
   self:registerPermissionFunction("not", function(user, params)
     return not user:hasPermission("!"..table.concat(params, ".", 2))
   end)
 
-  -- register group fperm
   self:registerPermissionFunction("group", function(user, params)
     local group = params[2]
     if group then
@@ -585,7 +586,12 @@ function Group:__construct()
     return false
   end)
 
-  -- Faction menu access
+  -- Initialize menus
+  menu_group_selector(self)
+  menu_user_groups(self)
+  menu_manage_faction(self)
+
+  -- Register main menu options
   vRP.EXT.GUI:registerMenuBuilder("main", function(menu)
     local user = menu.user
     if user:getFactionGroup() then
@@ -595,18 +601,14 @@ function Group:__construct()
     end
   end)
 
-  -- menu
-  menu_group_selector(self)
-  menu_user_groups(self)
-  menu_manage_faction(self)
-
-  -- main menu
+  -- Register admin menu options
   vRP.EXT.GUI:registerMenuBuilder("admin.users.user", function(menu)
     menu:addOption("Groups", function(menu)
       menu.user:openMenu("user.groups", menu.data)
     end)
   end)
 
+  -- Start paycheck task
   local function task_paycheck()
     SetTimeout(60000, task_paycheck)
     self:taskPaycheck()
@@ -617,34 +619,33 @@ function Group:__construct()
   end)
 end
 
+------------------------------------------
+-- Utility Methods
+------------------------------------------
 
--- return users list
+-- Get users by group
 function Group:getUsersByGroup(name)
   local users = {}
-
   for _,user in pairs(vRP.users) do
     if user:isReady() and user:hasGroup(name) then 
       table.insert(users, user) 
     end
   end
-
   return users
 end
 
--- return users list
+-- Get users by permission
 function Group:getUsersByPermission(perm)
   local users = {}
-
   for _,user in pairs(vRP.users) do
     if user:isReady() and user:hasPermission(perm) then 
       table.insert(users, user) 
     end
   end
-
   return users
 end
 
--- return title or nil
+-- Get group title
 function Group:getGroupTitle(group_name)
   local group = self.cfg.groups[group_name]
   if group and group._config then
@@ -652,11 +653,7 @@ function Group:getGroupTitle(group_name)
   end
 end
 
--- register a special permission function
--- name: name of the permission -> "!name.[...]"
--- callback(user, params) 
---- params: params (strings) of the permissions, ex "!name.param1.param2" -> ["name", "param1", "param2"]
---- should return true or false/nil
+-- Register permission function
 function Group:registerPermissionFunction(name, callback)
   if self.func_perms[name] then
     self:log("WARNING: re-registered permission function \""..name.."\"")
@@ -664,7 +661,9 @@ function Group:registerPermissionFunction(name, callback)
   self.func_perms[name] = callback
 end
 
--- EVENT
+------------------------------------------
+-- Event Handlers
+------------------------------------------
 
 Group.event = {}
 
@@ -732,7 +731,6 @@ function Group.event:playerSpawn(user, first_spawn)
     end
   end
 end
-
 
 function Group.event:characterLoad(user)
   if not user.cdata.groups then -- init groups table
