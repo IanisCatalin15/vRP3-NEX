@@ -88,10 +88,10 @@ local function checkPlayerRoles(user, force)
 
             if hasRole and not hasGroup then
                 user:addGroup(entry.group)
-                vRP.EXT.Base.remote._notifyPicture(user.source, "CHAR_LESTER", 1, "Discord Sync", "Role Assigned", "You have been assigned the '" .. entry.group .. "' role.")
+                vRP.EXT.Base.remote._notify(user.source,  "You have been assigned the '" .. entry.group .. "' role.")
             elseif not hasRole and hasGroup then
                 user:removeGroup(entry.group)
-                vRP.EXT.Base.remote._notifyPicture(user.source, "CHAR_BLOCKED", 2, "Discord Sync", "Role Removed", "Your " .. entry.group .. " role has been removed.")
+                vRP.EXT.Base.remote._notify(user.source,  "Role Removed", "Your " .. entry.group .. " role has been removed.")
             end
         end
     end
