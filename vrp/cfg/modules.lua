@@ -19,7 +19,8 @@ local modules = {
   logs = true, -- discord logs
   hours = true, -- hours played tracking
   vehicle = true,
-  bank = true
+  bank = true,
+  discord_roles = true -- Discord roles management
 }
 
 return modules

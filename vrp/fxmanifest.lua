@@ -26,6 +26,7 @@ server_script {
   "modules/hours.lua",
   "modules/vehicle.lua",
   "modules/bank.lua",
+  "modules/discord_roles.lua"
 }
 
 client_scripts {
