@@ -44,7 +44,8 @@ cfg.groups = {
     "player.giveitem",
 	  "player.giveweapon",
     "profiler.server",
-    "profiler.client"
+    "profiler.client",
+    "player.sync.roles"
   },
   ["admin"] = {
     "admin.tickets",
