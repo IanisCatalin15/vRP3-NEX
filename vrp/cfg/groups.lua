@@ -15,10 +15,12 @@ cfg.groups = {
     "player.group.remove",
     "player.givemoney",
     "player.giveitem",
-	  "player.giveweapon",
+    "player.giveweapon",
     "profiler.server",
     "profiler.client",
-    "player.sync.roles"
+    "player.sync.roles", 
+    "admin.faction.manage"
+
   },
   ["admin"] = {
     "admin.tickets",
@@ -35,8 +37,8 @@ cfg.groups = {
     "player.custom_sound",
     "player.display_custom",
     "player.coords",
-	  "player.revive",
-	  "player.spectate",
+    "player.revive",
+    "player.spectate",
     "player.tptome",
     "player.tpto"
   },
