@@ -267,26 +267,6 @@ function Group:__construct()
       menu.user:openMenu("user.groups", menu.data)
     end)
   end)
-  
-  -- task: group count display
-  if next(self.cfg.count_display_permissions) then
-    Citizen.CreateThread(function()
-      while true do
-        Citizen.Wait(self.cfg.count_display_interval*1000)
-
-        -- display
-        local content = ""
-        for _, dperm in ipairs(self.cfg.count_display_permissions) do
-          local count = #self:getUsersByPermission(dperm[1])
-          local img = dperm[2]
-
-          content = content.."<div><img src=\""..img.."\" />"..count.."</div>"
-        end
-
-        vRP.EXT.GUI.remote.setDivContent(-1, "group_count_display", content)
-      end
-    end)
-  end
 end
 
 -- return users list
