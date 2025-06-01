@@ -21,7 +21,8 @@ local modules = {
   vehicle = true,
   bank = true,
   discord_roles = true, -- Discord roles management
-  faction = true
+  faction = true,       -- Faction management
+  inventory = true      -- Inventory managementqq
 }
 
 return modules

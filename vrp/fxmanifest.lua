@@ -27,7 +27,8 @@ server_script {
   "modules/vehicle.lua",
   "modules/bank.lua",
   "modules/discord_roles.lua",
-  "modules/faction.lua"
+  "modules/faction.lua",
+  "modules/inventory.lua"
 
 }
 
