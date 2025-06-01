@@ -16,11 +16,12 @@ local modules = {
   user = true,
   identity = true,
   money = true,
-  logs = true, -- discord logs
+  logs = true,  -- discord logs
   hours = true, -- hours played tracking
   vehicle = true,
   bank = true,
-  discord_roles = true -- Discord roles management
+  discord_roles = true, -- Discord roles management
+  faction = true
 }
 
 return modules
