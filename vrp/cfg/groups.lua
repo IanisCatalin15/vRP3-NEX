@@ -8,33 +8,6 @@ local cfg = {}
 --- onjoin (optional): function(user) (called when the character join the group)
 --- onleave (optional): function(user) (called when the character leave the group)
 
-function police_init(user)
-  local weapons = {}
-  weapons["WEAPON_STUNGUN"] = {ammo=1000}
-  weapons["WEAPON_COMBATPISTOL"] = {ammo=100}
-  weapons["WEAPON_NIGHTSTICK"] = {ammo=0}
-  weapons["WEAPON_FLASHLIGHT"] = {ammo=0}
-  
-  --vRP.EXT.PlayerState.remote._giveWeapons(user.source,weapons,true)
-  --vRP.EXT.Police.remote._setCop(user.source,true)
-  --vRP.EXT.PlayerState.remote._setArmour(user.source,100)
-end
-
-function police_onjoin(user)
-  police_init(user)
-end
-
-function police_onleave(user)
-  --vRP.EXT.PlayerState.remote._giveWeapons(user.source,{},true)
-  --vRP.EXT.Police.remote._setCop(user.source,false)
-  --vRP.EXT.PlayerState.remote._setArmour(user.source,0)
-  --user:removeCloak()
-end
-
-function police_onspawn(user)
-  police_init(user)
-end
-
 cfg.groups = {
   ["superadmin"] = {
     _config = {onspawn = function(user) vRP.EXT.Base.remote._notify(user.source, "You are superadmin.") end},
