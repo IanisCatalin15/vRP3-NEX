@@ -351,13 +351,6 @@ function Group.event:playerSpawn(user, first_spawn)
         user:setArea("vRP:gselector:"..k,x,y,z,1,1.5,enter,leave)
       end
     end
-
-    -- group count display
-    if next(self.cfg.count_display_permissions) then
-	  if self.cfg.display then
-        vRP.EXT.GUI.remote.setDiv(user.source, "group_count_display", self.cfg.count_display_css, "")
-      end
-	end
   end
 
   -- call group onspawn callback at spawn
