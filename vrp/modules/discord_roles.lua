@@ -1,66 +1,117 @@
+if not vRP.mdoules.discord_roles then return end
+
 local Discord_Roles = class("Discord_Roles", vRP.Extension)
 local cfg = module("vrp", "cfg/discord_roles")
 
--- Internal cache
+-- Internal cache for Discord member data
 local discord_cache = {}
 local CACHE_COOLDOWN = cfg.cooldown or 60 -- in seconds
 
+-- Utility function to check if a value exists in a table
 local function contains(tbl, value)
-    for _, v in ipairs(tbl) do
-        if v == value then
-            return true
-        end
+  for _, v in ipairs(tbl) do
+    if v == value then
+      return true
     end
-    return false
+  end
+  return false
 end
 
+-- Get Discord ID from player source
 local function getDiscordID(source)
-    local identifiers = GetPlayerIdentifiers(source)
-    for _, identifier in ipairs(identifiers) do
-        local type, value = identifier:match("([^:]+):(.+)")
-        if type == "discord" and value and value:match("^%d+$") then
-            return value
-        end
+  local identifiers = GetPlayerIdentifiers(source)
+  for _, identifier in ipairs(identifiers) do
+    local type, value = identifier:match("([^:]+):(.+)")
+    if type == "discord" and value and value:match("^%d+$") then
+      return value
     end
-    print("[Discord_Roles] [WARN] No valid Discord ID for player " .. source)
-    return nil
+  end
+  print("[discord_roles] [WARN] No valid Discord ID for player " .. source)
+  return nil
 end
 
+-- Get cached Discord member data
 local function getCachedMember(discord_id)
-    local entry = discord_cache[discord_id]
-    if entry and (os.time() - entry.timestamp) < CACHE_COOLDOWN then
-        return entry.data
-    end
-    return nil
+  local entry = discord_cache[discord_id]
+  if entry and (os.time() - entry.timestamp) < CACHE_COOLDOWN then
+    return entry.data
+  end
+  return nil
 end
 
+-- Fetch member data from Discord API
 local function fetchDiscordMember(guild_id, user_id)
-    local r = async()
+  local r = async()
 
-    PerformHttpRequest(("https://discord.com/api/guilds/%s/members/%s"):format(guild_id, user_id), function(code, data)
-        if code == 200 then
-            local success, parsed = pcall(json.decode, data)
-            if success and parsed then
-                r(parsed)
-            else
-                print("[Discord_Roles] [ERROR] Failed to parse Discord response.")
-                r(nil)
-            end
-        else
-            print("[Discord_Roles] [ERROR] Discord API returned HTTP code " .. code)
-            r(nil)
-        end
-    end, 'GET', '', { ["Authorization"] = cfg.token })
+  PerformHttpRequest(("https://discord.com/api/guilds/%s/members/%s"):format(guild_id, user_id), function(code, data)
+    if code == 200 then
+      local success, parsed = pcall(json.decode, data)
+      if success and parsed then
+        r(parsed)
+      else
+        print("[discord_roles] [ERROR] Failed to parse Discord response.")
+        r(nil)
+      end
+    else
+      print("[discord_roles] [ERROR] Discord API returned HTTP code " .. code)
+      r(nil)
+    end
+  end, 'GET', '', { ["Authorization"] = "Bot " .. cfg.token })
 
-    return r:wait()
+  return r:wait()
 end
 
+-- Process a single role entry
+local function processRoleEntry(user, entry, hasRole, isFaction)
+  if isFaction then
+    return entry.group, entry.grade
+  else
+    local hasGroup = user:hasGroup(entry.group)
+    if hasRole and not hasGroup then
+      user:addGroup(entry.group)
+      vRP.EXT.Base.remote._notifyPicture(user.source, "CHAR_LESTER", 1, "Discord Sync", "Role Assigned",
+        "You have been assigned the '" .. entry.group .. "' role.")
+    elseif not hasRole and hasGroup then
+      user:removeGroup(entry.group)
+      vRP.EXT.Base.remote._notifyPicture(user.source, "CHAR_BLOCKED", 2, "Discord Sync", "Role Removed",
+        "Your " .. entry.group .. " role has been removed.")
+    end
+    return nil, nil
+  end
+end
+
+-- Handle faction assignment
+local function handleFactionAssignment(user, faction_group, faction_grade)
+  if not faction_group or not faction_grade then return end
+
+  local current_faction = user:getFaction()
+  local current_grade = user:getFactionGrade()
+
+  if current_faction ~= faction_group or current_grade ~= faction_grade then
+    -- Clear existing faction if different
+    if current_faction and current_faction ~= faction_group then
+      user:setFaction(nil, nil)
+    end
+
+    -- Try assigning new faction
+    local success, reason = user:setFaction(faction_group, faction_grade)
+    if success then
+      vRP.EXT.Base.remote._notifyPicture(user.source, "CHAR_LESTER", 1, "Discord Sync", "Faction Assigned",
+        "You joined '" .. faction_group .. "' as rank " .. faction_grade .. ".")
+    else
+      vRP.EXT.Base.remote._notifyPicture(user.source, "CHAR_BLOCKED", 2, "Discord Sync", "Faction Error",
+        "Failed to set faction: " .. (reason or "Unknown error"))
+    end
+  end
+end
+
+-- Main function to check and sync player roles
 local function checkPlayerRoles(user, force)
   local discord_id = getDiscordID(user.source)
   if not discord_id then return end
 
+  -- Get Discord member data
   local member = force and fetchDiscordMember(cfg.guildId, discord_id) or getCachedMember(discord_id)
-
   if not member then
     member = fetchDiscordMember(cfg.guildId, discord_id)
     if not member then return end
@@ -68,68 +119,59 @@ local function checkPlayerRoles(user, force)
   end
 
   if not member.roles or type(member.roles) ~= "table" then
-    print("[Discord_Roles] [WARN] No roles found for user " .. user.id)
+    print("[discord_roles] [WARN] No roles found for user " .. user.id)
     return
   end
 
-  local cfg_groups = vRP.EXT.Group.cfg.groups
   local faction_group, faction_grade = nil, nil
 
+  -- First pass: Process all roles and collect faction information
   for _, entry in ipairs(cfg.groups or {}) do
     if entry.roleId and entry.group then
       local hasRole = contains(member.roles, entry.roleId)
-      local group_cfg = cfg_groups[entry.group]
-      local isFaction = group_cfg and group_cfg._config and group_cfg._config.gtype == "faction"
+      local isFaction = vRP.EXT.Faction:getFactionConfig(entry.group) ~= nil
 
-      -- If Discord role is present
       if hasRole then
-        if isFaction and entry.grade then
-          if not faction_grade or entry.grade > faction_grade then
-            faction_group = entry.group
-            faction_grade = entry.grade
+        local new_faction, new_grade = processRoleEntry(user, entry, hasRole, isFaction)
+        if new_faction and new_grade then
+          if not faction_grade or new_grade > faction_grade then
+            faction_group = new_faction
+            faction_grade = new_grade
           end
-        elseif not user:hasGroup(entry.group) then
-          user:addGroup(entry.group)
-          vRP.EXT.Base.remote._notify(user.source, "You have been assigned the '" .. entry.group .. "' group.")
         end
-
-      -- If user has group but no role anymore
-      elseif user:hasGroup(entry.group) then
-        user:removeGroup(entry.group)
-        vRP.EXT.Base.remote._notify(user.source, "Your '" .. entry.group .. "' group has been removed.")
       end
     end
   end
 
-  -- Faction assignment (respecting limits and validation)
-  if faction_group and faction_grade then
-    local current_faction = user:getFactionGroup()
+  -- Handle faction assignment
+  handleFactionAssignment(user, faction_group, faction_grade)
 
-    if current_faction ~= faction_group then
-      -- Clear existing faction
-      if current_faction then
-        user:setFaction(nil, nil)
-      end
-
-      -- Try assigning new faction
-      local success, reason = user:setFaction(faction_group, faction_grade)
-      if success then
-        vRP.EXT.Base.remote._notifyPicture(user.source, "CHAR_LESTER", 1, "Discord Sync", "Faction Assigned",
-          "You joined '" .. faction_group .. "' as rank " .. faction_grade .. ".")
-      else
-        vRP.EXT.Base.remote._notify(user.source, "[Faction Sync] Failed: " .. reason)
-      end
-    end
+  -- Remove faction if no matching Discord role found
+  if not faction_group and user:getFaction() then
+    user:setFaction(nil, nil)
+    vRP.EXT.Base.remote._notifyPicture(user.source, "CHAR_BLOCKED", 2, "Discord Sync", "Faction Removed",
+      "Your faction membership has been removed.")
   end
 end
 
 -- Extension constructor
 function Discord_Roles:__construct()
   vRP.Extension.__construct(self)
- 
-  self.cfg = module("cfg/discord_roles")
-  self:log(#self.cfg.groups.." Groups")
 
+  self.cfg = module("cfg/discord_roles")
+
+  -- Validate configuration
+  if not self.cfg or not self.cfg.token or not self.cfg.guildId or not self.cfg.groups then
+    print("[discord_roles] [ERROR] Configuration is missing required fields")
+    print("Required fields: token, guildId, groups")
+    return
+  end
+
+  -- Print configuration info
+  print("[Discord Roles] Configuration loaded:")
+  print("Guild ID: " .. self.cfg.guildId)
+  print("Number of role mappings: " .. #self.cfg.groups)
+  -- Register admin menu option
   vRP.EXT.GUI:registerMenuBuilder("admin.users.user", function(menu)
     local adminUser = menu.user
     local targetUser = vRP.users[menu.data.id]
@@ -147,7 +189,7 @@ end
 Discord_Roles.event = {}
 
 function Discord_Roles.event:characterLoad(user)
-    checkPlayerRoles(user, false) -- use cache
+  checkPlayerRoles(user, false) -- use cache
 end
 
 vRP:registerExtension(Discord_Roles)
