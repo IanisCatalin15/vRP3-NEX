@@ -227,6 +227,18 @@ local function menu_inventory_item(self)
 
         if backpack then
             if user.cdata.equipped_backpack == base_id then
+                -- Calculate weight without backpack bonus
+                local current_weight = user:getInventoryWeight()
+                local base_max_weight = vRP.EXT.Inventory.cfg.inventory_base_strength +
+                    vRP.EXT.Inventory.cfg.inventory_weight_per_strength
+
+                -- Check if inventory would be overweight without backpack
+                if current_weight > base_max_weight then
+                    vRP.EXT.Base.remote._notify(user.source,
+                        "You can't unequip the backpack while your inventory is too heavy")
+                    return
+                end
+
                 -- Unequip backpack
                 user.cdata.equipped_backpack = nil
                 vRP.EXT.Base.remote._notify(user.source, "You unequipped " .. backpack.name)
