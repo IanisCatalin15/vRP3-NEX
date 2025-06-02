@@ -15,19 +15,22 @@ cfg.backpacks = {
         name = "Small Backpack",
         description = "A small backpack that increases your carrying capacity by 10kg",
         weight = 1.0,
-        capacity_bonus = 10
+        capacity_bonus = 10,
+        prop_name = "prop_michael_backpack"
     },
     ["medium_backpack"] = {
         name = "Medium Backpack",
         description = "A medium backpack that increases your carrying capacity by 15kg",
         weight = 1.5,
-        capacity_bonus = 15
+        capacity_bonus = 15,
+        prop_name = "p_ld_heist_bag_01"
     },
     ["large_backpack"] = {
         name = "Large Backpack",
         description = "A large backpack that increases your carrying capacity by 20kg",
         weight = 2.0,
-        capacity_bonus = 20
+        capacity_bonus = 20,
+        prop_name = "p_ld_heist_bag_s_pro2_s"
     }
 }
 
