@@ -5,7 +5,7 @@ local Inventory = class("Inventory", vRP.Extension)
 local prop = nil
 
 local function setBackpack(prop_name)
-    local playerPed = GetPlayerPed(-1)
+    local playerPed = PlayerPedId()
     local x, y, z = table.unpack(GetEntityCoords(playerPed))
 
     Citizen.CreateThread(function()
@@ -21,6 +21,15 @@ local function setBackpack(prop_name)
         local ox, oy, oz = table.unpack(offsets[prop_name] or { 0.0, 0.0, 0.0 })
         AttachEntityToEntity(prop, playerPed, GetPedBoneIndex(playerPed, 24818), ox, oy, oz, 0.0, 90.0, 180.0, true, true,
             false, true, 1, true)
+
+        --[[   while prop and DoesEntityExist(prop) do
+            if not IsEntityAttachedToEntity(prop, playerPed) then
+                AttachEntityToEntity(prop, playerPed, GetPedBoneIndex(playerPed, 24818), ox, oy, oz, 0.0, 90.0, 180.0,
+                    true, true,
+                    false, true, 1, true)
+            end
+            Citizen.Wait(1000)
+        end  ]]
     end)
 end
 

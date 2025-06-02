@@ -683,6 +683,16 @@ end
 -- EVENT
 Inventory.event = {}
 
+function Inventory.event:playerStateLoaded(user)
+    -- Attach backpack if equipped
+    if user.cdata.equipped_backpack then
+        local backpack = self.backpacks[user.cdata.equipped_backpack]
+        if backpack then
+            vRP.EXT.Inventory.remote._toggleBackpack(user.source, backpack.prop_name)
+        end
+    end
+end
+
 function Inventory.event:characterLoad(user)
     if not user.cdata.inventory then
         user.cdata.inventory = {}
