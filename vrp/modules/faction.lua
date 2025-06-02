@@ -521,8 +521,10 @@ local function menu_admin_users_user(self)
         menu.css.header_color = "rgba(0,125,255,0.75)"
 
         for _, faction_name in ipairs(factions) do
-            menu:addOption(faction_name, function()
-                local faction_cfg = vRP.EXT.Faction:getFactionConfig(faction_name)
+            local faction_cfg = vRP.EXT.Faction:getFactionConfig(faction_name)
+            local title = (faction_cfg and faction_cfg._config and faction_cfg._config.title) or faction_name
+
+            menu:addOption(title, function()
                 if faction_cfg and faction_cfg._config and faction_cfg._config.grades then
                     user:openMenu("admin.grade_selector", { faction = faction_name, target = tuser })
                 end
