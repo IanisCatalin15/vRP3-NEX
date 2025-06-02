@@ -62,11 +62,11 @@ end
 -- Improved function
 function Vehicle.User:getVehicleState(model)
   if not self.vehicle_states then
-    self.vehicle_states = {} 
+    self.vehicle_states = {}
   end
   local state = self.vehicle_states[model]
-  if not state then 
-    local sdata = vRP:getCData(self.cid, "vRP:vehicle_state:"..model)
+  if not state then
+    local sdata = vRP:getCData(self.cid, "vRP:vehicle_state:" .. model)
     if sdata and #sdata > 0 then
       state = msgpack.unpack(sdata)
     else
@@ -78,7 +78,7 @@ function Vehicle.User:getVehicleState(model)
   return state
 end
 
-
+-- Improved vehicle spawning and buying
 -- Improved vehicle spawning and buying
 local function menu_garage_buy(self)
   local function m_buy(menu, model)
@@ -90,39 +90,12 @@ local function menu_garage_buy(self)
       return vRP.EXT.Base.remote._notify(user.source, "Vehicle not found.")
     end
 
-
     if not user:tryPayment(veh.price) then
       return vRP.EXT.Base.remote._notify(user.source, "Not enough money")
     end
 
-
-    local shop_key = menu.data.shop_key
-    local shop_cfg = self.cfg.vehicleshops[shop_key]
-    if not shop_cfg or not shop_cfg.purchaseSpawn or #shop_cfg.purchaseSpawn == 0 then
-      return vRP.EXT.Base.remote._notify(user.source, "Vehicle shop configuration error.")
-    end
-
-
-    local spawn = shop_cfg.purchaseSpawn[math.random(#shop_cfg.purchaseSpawn)]
-    if not spawn or spawn.x == 0 then
-      return vRP.EXT.Base.remote._notify(user.source, "No valid spawn point configured.")
-    end
-
-
-    vRP.EXT.Base.remote.teleport(user.source, spawn.x, spawn.y, spawn.z, spawn.w)
-
-    local vstate = user:getVehicleState(model)
-    local state = {
-      customization = vstate.customization,
-      condition = vstate.condition,
-      locked = vstate.locked
-    }
-
-
+    -- Add vehicle to user's owned vehicles
     uvehicles[model] = 0
-    self.remote._spawnVehicle(user.source, model, state)
-    self.remote._setOutVehicles(user.source, { [model] = {} })
-
     vRP.EXT.Base.remote._notify(user.source, "Purchased for $" .. veh.price)
     user:actualizeMenu()
     user:closeMenu(menu)
@@ -138,7 +111,7 @@ local function menu_garage_buy(self)
 
     menu.title = shop_name or "Vehicle Shop"
     menu.css.header_color = "rgba(255,125,0,0.75)"
-    menu.data.shop_key = shop_key 
+    menu.data.shop_key = shop_key
 
 
     if shop_key then
@@ -159,11 +132,12 @@ local function menu_garage_buy(self)
 
     for model, veh in pairs(shop_vehicles) do
       if not uvehicles[model] then
-        menu:addOption(veh.name, m_buy, string.format("Price: $%d\n<br>Category: %s\n<br>Type: %s", veh.price, veh.category, veh.vtype), model)
+        menu:addOption(veh.name, m_buy,
+          string.format("Price: $%d\n<br>Category: %s\n<br>Type: %s", veh.price, veh.category, veh.vtype), model)
       end
     end
   end)
-end 
+end
 
 -- Helper function to check if a value exists in a table
 function table.contains(tbl, val)
@@ -186,7 +160,7 @@ local function menu_garage_sell(self)
       if sell_cfg then
         local price = math.floor((veh.price or 0) * (sell_cfg.sellPrice / 100))
         uvehicles[model] = nil
-        user:addWallet(price)
+        user:giveWallet(price)
         vRP.EXT.Base.remote._notify(user.source, "Vehicle sold for $" .. price)
         user:actualizeMenu()
       else
@@ -214,8 +188,8 @@ local function menu_garage_sell(self)
 
       if veh and veh.type == sell_cfg.type then
         local price = math.floor((veh.price or 0) * (sell_cfg.sellPrice / 100))
-        menu:addOption(veh.name, m_sell, string.format("Model: %s\n<br>Original Price: $%d\n<br>Sell Price: $%d", model, veh.price or 0, price), model)
-
+        menu:addOption(veh.name, m_sell,
+          string.format("Model: %s\n<br>Original Price: $%d\n<br>Sell Price: $%d", model, veh.price or 0, price), model)
       end
     end
   end)
@@ -263,7 +237,7 @@ function Vehicle.event:playerSpawn(user, first_spawn)
           {
             blip_id    = blip_id,
             blip_color = blip_color,
-            title = shop_data.shop_name or shop_key,
+            title      = shop_data.shop_name or shop_key,
             marker_id  = marker_id,
             pos        = { p.x, p.y, p.z - 1 }
           }
@@ -271,7 +245,7 @@ function Vehicle.event:playerSpawn(user, first_spawn)
 
         vRP.EXT.Map.remote._addEntity(user.source, poi[1], poi[2])
         user:setArea(
-          "vRP:vehicleshop:"..shop_key,
+          "vRP:vehicleshop:" .. shop_key,
           p.x, p.y, p.z,
           1.5, 2.0,
           enterArea, leaveArea
@@ -308,7 +282,6 @@ function Vehicle.event:playerSpawn(user, first_spawn)
   end
 end
 
-
 function Vehicle.event:characterLoad(user)
   if not user.cdata.vehicles then
     user.cdata.vehicles = {}
@@ -324,7 +297,7 @@ function Vehicle.event:characterUnload(user)
 
   -- save vehicle states
   for model, state in pairs(user.vehicle_states) do
-    vRP:setCData(user.cid, "vRP:vehicle_state:"..model, msgpack.pack(state))
+    vRP:setCData(user.cid, "vRP:vehicle_state:" .. model, msgpack.pack(state))
   end
 
   -- despawn vehicles
@@ -332,11 +305,10 @@ function Vehicle.event:characterUnload(user)
   self.remote._clearOutVehicles(user.source)
 end
 
-
 function Vehicle.event:save()
   for _, user in pairs(vRP.users) do
     for model, state in pairs(user.vehicle_states) do
-      vRP:setCData(user.cid, "vRP:vehicle_state:"..model, msgpack.pack(state))
+      vRP:setCData(user.cid, "vRP:vehicle_state:" .. model, msgpack.pack(state))
     end
   end
 end

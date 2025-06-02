@@ -13,21 +13,21 @@ function Vehicle:__construct()
   -- init decorators
   DecorRegister("vRP.owner", 3)
 
-  self.vehicles = {} -- map of vehicle model => veh id (owned vehicles)
-  self.hash_models = {} -- map of hash => model
+  self.vehicles = {}        -- map of vehicle model => veh id (owned vehicles)
+  self.hash_models = {}     -- map of hash => model
 
   self.update_interval = 30 -- seconds
-  self.check_interval = 15 -- seconds
+  self.check_interval = 15  -- seconds
   self.respawn_radius = 200
 
   self.state_ready = false -- flag, if true will try to re-own/spawn periodically out vehicles
 
-  self.out_vehicles = {} -- map of vehicle model => {cstate, position, rotation}, unloaded out vehicles to spawn
+  self.out_vehicles = {}   -- map of vehicle model => {cstate, position, rotation}, unloaded out vehicles to spawn
 
   -- task: save vehicle states
   Citizen.CreateThread(function()
     while true do
-      Citizen.Wait(self.update_interval*1000)
+      Citizen.Wait(self.update_interval * 1000)
 
       if self.state_ready then
         local states = {}
@@ -35,19 +35,19 @@ function Vehicle:__construct()
         for model, veh in pairs(self.vehicles) do
           if IsEntityAVehicle(veh) then
             local state = self:getVehicleState(model)
-            state.position = {table.unpack(GetEntityCoords(veh, true))}
-            state.rotation = {GetEntityQuaternion(veh)}
+            state.position = { table.unpack(GetEntityCoords(veh, true)) }
+            state.rotation = { GetEntityQuaternion(veh) }
 
             states[model] = state
 
             if self.out_vehicles[model] then -- update out vehicle state data
-              self.out_vehicles[model] = {state, state.position, state.rotation}
+              self.out_vehicles[model] = { state, state.position, state.rotation }
             end
           end
         end
 
         self.remote._updateVehicleStates(states)
-        vRP.EXT.PlayerState.remote._update({ in_owned_vehicle = self:getInOwnedVehicleModel() or false})
+        vRP.EXT.PlayerState.remote._update({ in_owned_vehicle = self:getInOwnedVehicleModel() or false })
       end
     end
   end)
@@ -55,7 +55,7 @@ function Vehicle:__construct()
   -- task: vehicles check
   Citizen.CreateThread(function()
     while true do
-      Citizen.Wait(self.check_interval*1000)
+      Citizen.Wait(self.check_interval * 1000)
 
       if self.state_ready then
         self:cleanupVehicles()
@@ -146,18 +146,17 @@ function Vehicle:spawnVehicle(model, state, position, rotation)
   end
 end
 
-
 -- return true if despawned
 function Vehicle:despawnVehicle(model)
   local veh = self.vehicles[model]
   if veh then
-		-- Before despawning, save its state
+    -- Before despawning, save its state
     self:saveVehicleState()
 
     vRP:triggerEvent("VehicleVehicleDespawn", model)
 
     -- remove vehicle
-    SetVehicleHasBeenOwnedByPlayer(veh,false)
+    SetVehicleHasBeenOwnedByPlayer(veh, false)
     SetEntityAsMissionEntity(veh, false, true)
     SetVehicleAsNoLongerNeeded(Citizen.PointerValueIntInitialized(veh))
     Citizen.InvokeNative(0xEA386986E786A54F, Citizen.PointerValueIntInitialized(veh))
@@ -193,16 +192,16 @@ end
 function Vehicle:tryOwnVehicles()
   for _, veh in pairs(self:getAllVehicles()) do
     local cid, model = self:getVehicleInfo(veh)
-    if cid and vRP.EXT.Base.cid == cid then -- owned
+    if cid and vRP.EXT.Base.cid == cid then         -- owned
       local old_veh = self.vehicles[model]
       if old_veh and IsEntityAVehicle(old_veh) then -- still valid
-        if old_veh ~= veh then -- remove this new one
-          SetVehicleHasBeenOwnedByPlayer(veh,false)
+        if old_veh ~= veh then                      -- remove this new one
+          SetVehicleHasBeenOwnedByPlayer(veh, false)
           SetEntityAsMissionEntity(veh, false, true)
           SetVehicleAsNoLongerNeeded(Citizen.PointerValueIntInitialized(veh))
           Citizen.InvokeNative(0xEA386986E786A54F, Citizen.PointerValueIntInitialized(veh))
         end
-      else -- no valid old veh
+      else                         -- no valid old veh
         self.vehicles[model] = veh -- re-own
       end
     end
@@ -212,12 +211,12 @@ end
 function Vehicle:trySpawnOutVehicles()
   if not self.respawn_radius then return end -- early check to prevent nil compare
 
-  local x,y,z = vRP.EXT.Base:getPosition()
+  local x, y, z = vRP.EXT.Base:getPosition()
 
   for model, data in pairs(self.out_vehicles) do
     if not self.vehicles[model] then
-      local vx,vy,vz = table.unpack(data[2])
-      local distance = GetDistanceBetweenCoords(x,y,z,vx,vy,vz,true)
+      local vx, vy, vz = table.unpack(data[2])
+      local distance = GetDistanceBetweenCoords(x, y, z, vx, vy, vz, true)
 
       if distance <= self.respawn_radius then
         self:spawnVehicle(model, data[1], data[2], data[3])
@@ -225,7 +224,6 @@ function Vehicle:trySpawnOutVehicles()
     end
   end
 end
-
 
 -- cleanup invalid owned vehicles
 function Vehicle:cleanupVehicles()
@@ -238,7 +236,7 @@ end
 
 -- return model or nil if not in owned vehicle
 function Vehicle:getInOwnedVehicleModel()
-  local veh = GetVehiclePedIsIn(GetPlayerPed(-1),false)
+  local veh = GetVehiclePedIsIn(GetPlayerPed(-1), false)
   local cid, model = self:getVehicleInfo(veh)
   if cid and cid == vRP.EXT.Base.cid then
     return model
@@ -248,23 +246,22 @@ end
 -- VEHICLE STATE
 
 function Vehicle:getVehicleCustomization(veh)
-
-  custom.colours = {GetVehicleColours(veh)}
-  custom.extra_colours = {GetVehicleExtraColours(veh)}
+  custom.colours = { GetVehicleColours(veh) }
+  custom.extra_colours = { GetVehicleExtraColours(veh) }
   custom.plate_index = GetVehicleNumberPlateTextIndex(veh)
-  custom.plate_txt = GetVehicleNumberPlateText(veh)	
+  custom.plate_txt = GetVehicleNumberPlateText(veh)
   custom.wheel_type = GetVehicleWheelType(veh)
   custom.window_tint = GetVehicleWindowTint(veh)
   custom.livery = GetVehicleLivery(veh)
   custom.neons = {}
-  for i=0,3 do
+  for i = 0, 3 do
     custom.neons[i] = IsVehicleNeonLightEnabled(veh, i)
   end
-  custom.neon_colour = {GetVehicleNeonLightsColour(veh)}
-  custom.tyre_smoke_color = {GetVehicleTyreSmokeColor(veh)}
+  custom.neon_colour = { GetVehicleNeonLightsColour(veh) }
+  custom.tyre_smoke_color = { GetVehicleTyreSmokeColor(veh) }
 
   custom.mods = {}
-  for i=0,49 do
+  for i = 0, 49 do
     custom.mods[i] = GetVehicleMod(veh, i)
   end
 
@@ -314,7 +311,6 @@ function Vehicle:setVehicleCustomization(veh, custom)
   if custom.xenon_enabled ~= nil then ToggleVehicleMod(veh, 22, custom.xenon_enabled) end
 end
 
-
 function Vehicle:getVehicleState(veh)
   local state = {
     customization = self:getVehicleCustomization(veh),
@@ -327,12 +323,12 @@ function Vehicle:getVehicleState(veh)
   }
 
   state.condition.windows = {}
-  for i=0,7 do 
+  for i = 0, 7 do
     state.condition.windows[i] = IsVehicleWindowIntact(veh, i)
   end
 
   state.condition.tyres = {}
-  for i=0,7 do
+  for i = 0, 7 do
     local tyre_state = 2 -- 2: fine, 1: burst, 0: completely burst
     if IsVehicleTyreBurst(veh, i, true) then
       tyre_state = 0
@@ -344,7 +340,7 @@ function Vehicle:getVehicleState(veh)
   end
 
   state.condition.doors = {}
-  for i=0,5 do
+  for i = 0, 5 do
     state.condition.doors[i] = not IsVehicleDoorDamaged(veh, i)
   end
 
@@ -402,18 +398,17 @@ function Vehicle:setVehicleState(veh, state)
     end
   end
 
-  if state.locked ~= nil then 
+  if state.locked ~= nil then
     if state.locked then -- lock
-      SetVehicleDoorsLocked(veh,2)
+      SetVehicleDoorsLocked(veh, 2)
       SetVehicleDoorsLockedForAllPlayers(veh, true)
     else -- unlock
       SetVehicleDoorsLockedForAllPlayers(veh, false)
-      SetVehicleDoorsLocked(veh,1)
+      SetVehicleDoorsLocked(veh, 1)
       SetVehicleDoorsLockedForPlayer(veh, PlayerId(), false)
     end
   end
 end
-
 
 -- TUNNEL
 Vehicle.tunnel = {}
