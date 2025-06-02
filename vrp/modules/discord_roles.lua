@@ -1,4 +1,4 @@
-if not vRP.mdoules.discord_roles then return end
+if not vRP.modules.discord_roles then return end
 
 local Discord_Roles = class("Discord_Roles", vRP.Extension)
 local cfg = module("vrp", "cfg/discord_roles")
