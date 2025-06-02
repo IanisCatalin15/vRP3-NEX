@@ -2,7 +2,7 @@ local cfg = {}
 
 cfg.permission = "player.sync.roles"
 
-cfg.token = "Bot "  -- "Bot [Discord Server Token]"
+cfg.token = ""  -- "[Discord Server Token]"
 
 cfg.guildId = ""    -- "Discord server ID"
 
