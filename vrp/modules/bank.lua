@@ -73,7 +73,7 @@ function Bank:__construct()
     end
 
     if user_money < amount then
-      vRP.EXT.Base.remote._notify(user.source, "You don't have enough cash. Wallet: $" .. formatNumber(user_money))
+      vRP.EXT.Base.remote._notify(user.source, "You don't have enough cash!")
       return
     end
 
@@ -106,7 +106,7 @@ function Bank:__construct()
     end
 
     if user_bank < amount then
-      vRP.EXT.Base.remote._notify(user.source, "Insufficient bank balance. Bank: $" .. formatNumber(user_bank))
+      vRP.EXT.Base.remote._notify(user.source, "Insufficient bank balance!")
       return
     end
 
@@ -144,7 +144,7 @@ function Bank:__construct()
 
     if user_wallet < amount then
       vRP.EXT.Base.remote._notify(user.source,
-        "You don't have enough cash to transfer. Wallet: $" .. formatNumber(user_wallet))
+        "You don't have enough money to transfer!")
       return
     end
 
