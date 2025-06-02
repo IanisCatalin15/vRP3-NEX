@@ -155,6 +155,47 @@ end
 
 -- PRIVATE METHODS
 
+-- Backpack related functions
+local function validateBackpackWeight(user, backpack)
+    local current_weight = user:getInventoryWeight()
+    local base_max_weight = vRP.EXT.Inventory.cfg.inventory_base_strength +
+        vRP.EXT.Inventory.cfg.inventory_weight_per_strength
+
+    return current_weight <= base_max_weight
+end
+
+local function equipBackpack(user, backpack, base_id)
+    if not backpack then return false end
+
+    -- Check if another backpack is equipped
+    if user.cdata.equipped_backpack then
+        vRP.EXT.Base.remote._notify(user.source, "You already have a backpack equipped")
+        return false
+    end
+
+    -- Equip backpack
+    user.cdata.equipped_backpack = base_id
+    vRP.EXT.Base.remote._notify(user.source, "You equipped " .. backpack.name)
+    vRP.EXT.Inventory.remote._toggleBackpack(user.source, backpack.prop_name)
+    return true
+end
+
+local function unequipBackpack(user, backpack)
+    if not backpack then return false end
+
+    -- Validate weight before unequipping
+    if not validateBackpackWeight(user, backpack) then
+        vRP.EXT.Base.remote._notify(user.source, "You can't unequip the backpack while your inventory is too heavy")
+        return false
+    end
+
+    -- Unequip backpack
+    user.cdata.equipped_backpack = nil
+    vRP.EXT.Base.remote._notify(user.source, "You unequipped " .. backpack.name)
+    vRP.EXT.Inventory.remote._removeBackpack(user.source)
+    return true
+end
+
 -- menu: inventory item
 local function menu_inventory_item(self)
     -- give action
@@ -225,37 +266,12 @@ local function menu_inventory_item(self)
         local base_id = self:parseItem(fullid)[1]
         local backpack = self.backpacks[base_id]
 
-        if backpack then
-            if user.cdata.equipped_backpack == base_id then
-                -- Calculate weight without backpack bonus
-                local current_weight = user:getInventoryWeight()
-                local base_max_weight = vRP.EXT.Inventory.cfg.inventory_base_strength +
-                    vRP.EXT.Inventory.cfg.inventory_weight_per_strength
+        if not backpack then return end
 
-                -- Check if inventory would be overweight without backpack
-                if current_weight > base_max_weight then
-                    vRP.EXT.Base.remote._notify(user.source,
-                        "You can't unequip the backpack while your inventory is too heavy")
-                    return
-                end
-
-                -- Unequip backpack
-                user.cdata.equipped_backpack = nil
-                vRP.EXT.Base.remote._notify(user.source, "You unequipped " .. backpack.name)
-                -- Remove backpack using tunnel
-                vRP.EXT.Inventory.remote._removeBackpack(user.source)
-            else
-                -- Check if another backpack is equipped
-                if user.cdata.equipped_backpack then
-                    vRP.EXT.Base.remote._notify(user.source, "You already have a backpack equipped")
-                else
-                    -- Equip backpack
-                    user.cdata.equipped_backpack = base_id
-                    vRP.EXT.Base.remote._notify(user.source, "You equipped " .. backpack.name)
-                    -- Attach backpack using tunnel
-                    vRP.EXT.Inventory.remote._toggleBackpack(user.source, backpack.prop_name)
-                end
-            end
+        if user.cdata.equipped_backpack == base_id then
+            unequipBackpack(user, backpack)
+        else
+            equipBackpack(user, backpack, base_id)
         end
     end
 
@@ -277,10 +293,7 @@ local function menu_inventory_item(self)
         local base_id = self:parseItem(menu.data.fullid)[1]
         if self.backpacks[base_id] then
             local backpack = self.backpacks[base_id]
-            local toggle_text = user.cdata.equipped_backpack == base_id and
-                "Unequip Backpack" or
-                "Equip Backpack"
-            menu:addOption(toggle_text, m_toggle_backpack, "Toggle backpack on/off")
+            menu:addOption("Toggle Backpack", m_toggle_backpack, "Toggle backpack on/off")
         end
 
         -- add give/trash options
