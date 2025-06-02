@@ -53,6 +53,12 @@ function Bank:__construct()
   self:log(#self.cfg.banks.." Banks")
   self:log(#self.cfg.atms.." Atms")
 
+  -- Menu option: Show account info
+  local function m_account_info(menu, index)
+    local user = menu.user
+    local bank_balance = user:getBank()
+    menu:updateOption(index, nil, string.format("<br> Bank Balance: %s", formatNumber(bank_balance)))
+  end
 
   -- Menu option: Deposit at bank
   local function m_deposit(menu)
@@ -136,32 +142,34 @@ local function m_transfer(menu)
   end
 end
 
+  -- Register bank menu
   vRP.EXT.GUI:registerMenuBuilder("bank", function(menu)
     local user = vRP.users_by_source[menu.user.source]
     local character_id = user.cid
 
     if character_id then
+      menu.title = "Bank"
+      menu.css = { top = "75px", header_color = "rgba(200,0,0,0.75)" }
 
-    menu.title = "Bank"
-    menu.css = { top = "75px", header_color = "rgba(200,0,0,0.75)" }
-    menu:addOption("Account Info", nil, string.format("<br> Bank Balance: %s", formatNumber(user:getBank())))
-
-    menu:addOption("Deposit", m_deposit, "Deposit money into bank")
-    menu:addOption("Withdraw", m_withdraw, "Withdraw money from bank")
-    menu:addOption("Transfer", m_transfer, "Transfer money to another account")
+      menu:addOption("Account Info", m_account_info, "") -- index will be passed to update later
+      menu:addOption("Deposit", m_deposit, "Deposit money into bank")
+      menu:addOption("Withdraw", m_withdraw, "Withdraw money from bank")
+      menu:addOption("Transfer", m_transfer, "Transfer money to another account")
     end
   end)
 
+  -- Register ATM menu
   vRP.EXT.GUI:registerMenuBuilder("atm", function(menu)
     local user = vRP.users_by_source[menu.user.source]
     local character_id = user.cid
 
     if character_id then
-    menu.title = "ATM"
-    menu.css = { top = "75px", header_color = "rgba(0,200,0,0.75)" }
-    menu:addOption("Account Info", nil, string.format("<br> Bank Balance: %s", formatNumber(user:getBank())))
-    menu:addOption("Withdraw", m_withdraw, "Withdraw money from bank")
-    menu:addOption("Transfer", m_transfer, "Transfer money to another account")
+      menu.title = "ATM"
+      menu.css = { top = "75px", header_color = "rgba(0,200,0,0.75)" }
+
+      menu:addOption("Account Info", m_account_info, "") -- will auto-update inside handler
+      menu:addOption("Withdraw", m_withdraw, "Withdraw money from bank")
+      menu:addOption("Transfer", m_transfer, "Transfer money to another account")
     end
   end)
 end
