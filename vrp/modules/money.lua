@@ -57,65 +57,72 @@ end
 -- Deduct from wallet if enough funds exist.
 -- 'dry' mode allows checking without modifying data.
 function Money.User:tryPayment(amount, dry)
-	if type(amount) ~= "number" or amount <= 0 then return false end
-  if self:getWallet() >= amount then
+  local money = self:getWallet()
+  if type(amount) == "number" and amount > 0 and money >= amount then
     if not dry then
-      self:setWallet(self:getWallet() - amount)
+      self:setWallet(money - amount)
     end
     return true
   end
   return false
 end
 
--- Withdraw from bank into wallet.
+-- Try to withdraw from bank to wallet
 function Money.User:tryWithdraw(amount, dry)
-	if type(amount) ~= "number" or amount <= 0 then return false end
-  if self:getBank() >= amount then
+  local bank = self:getBank()
+  if type(amount) == "number" and amount > 0 and bank >= amount then
     if not dry then
-      self:setBank(self:getBank() - amount)
-      self:giveWallet(amount)
+      self:setBank(bank - amount)
+      self:setWallet(self:getWallet() + amount)
     end
     return true
   end
   return false
 end
 
--- Deposit funds from wallet into bank.
+-- Try to deposit from wallet to bank
 function Money.User:tryDeposit(amount, dry)
-	if type(amount) ~= "number" or amount <= 0 then return false end
-  if self:tryPayment(amount, dry) then
-    if not dry then
-      self:giveBank(amount)
-    end
-    return true
-  end
-  return false
-end
-
--- Function to pay using card (deduct from bank only)
-function Money.User:tryCardPayment(amount, dry)
-	if type(amount) ~= "number" or amount <= 0 then return false end
-  if self:getBank() >= amount then
-    if not dry then
-      self:setBank(self:getBank() - amount)
-    end
-    return true
-  end
-  return false
-end
-
--- Try to cover payment using both wallet and bank if necessary.
-function Money.User:tryFullPayment(amount, dry)
-	if type(amount) ~= "number" or amount <= 0 then return false end
   local wallet = self:getWallet()
-  if wallet >= amount then
-    return self:tryPayment(amount, dry)
-  else
-    local remaining = amount - wallet
-    if self:tryWithdraw(remaining, dry) then
-      return self:tryPayment(amount, dry)
+  if type(amount) == "number" and amount > 0 and wallet >= amount then
+    if not dry then
+      self:setWallet(wallet - amount)
+      self:setBank(self:getBank() + amount)
     end
+    return true
   end
+  return false
+end
+
+-- Try to pay from bank (card only)
+function Money.User:tryCardPayment(amount, dry)
+  local bank = self:getBank()
+  if type(amount) == "number" and amount > 0 and bank >= amount then
+    if not dry then
+      self:setBank(bank - amount)
+    end
+    return true
+  end
+  return false
+end
+
+-- Try to pay using wallet first, then bank (combined payment)
+function Money.User:tryFullPayment(amount, dry)
+  if type(amount) ~= "number" or amount <= 0 then return false end
+
+  local wallet = self:getWallet()
+  local bank = self:getBank()
+
+  if wallet >= amount then
+    if not dry then self:setWallet(wallet - amount) end
+    return true
+  elseif (wallet + bank) >= amount then
+    if not dry then
+      self:setWallet(0)
+      self:setBank(bank - (amount - wallet))
+    end
+    return true
+  end
+
   return false
 end
 
