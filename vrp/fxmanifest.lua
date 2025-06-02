@@ -28,7 +28,8 @@ server_script {
   "modules/bank.lua",
   "modules/discord_roles.lua",
   "modules/faction.lua",
-  "modules/inventory.lua"
+  "modules/inventory.lua",
+  "modules/money.lua"
 
 }
 
@@ -44,8 +45,8 @@ client_scripts {
   "client/player_state.lua",
   "client/weapon.lua",
   "client/hours.lua",
-  "client/vehicle.lua"
-
+  "client/vehicle.lua",
+  "client/inventory.lua"
 }
 
 files {

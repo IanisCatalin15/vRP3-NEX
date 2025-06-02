@@ -103,8 +103,18 @@ end
 
 -- return maximum weight of inventory
 function Inventory.User:getInventoryMaxWeight()
-    return vRP.EXT.Inventory.cfg.inventory_base_strength +
+    local base_weight = vRP.EXT.Inventory.cfg.inventory_base_strength +
         vRP.EXT.Inventory.cfg.inventory_weight_per_strength
+
+    -- Add backpack bonus if equipped
+    if self.cdata.equipped_backpack then
+        local backpack = vRP.EXT.Inventory.cfg.backpacks[self.cdata.equipped_backpack]
+        if backpack then
+            base_weight = base_weight + backpack.capacity_bonus
+        end
+    end
+
+    return base_weight
 end
 
 function Inventory.User:clearInventory()
@@ -208,6 +218,35 @@ local function menu_inventory_item(self)
         end
     end
 
+    -- toggle backpack action
+    local function m_toggle_backpack(menu)
+        local user = menu.user
+        local fullid = menu.data.fullid
+        local base_id = self:parseItem(fullid)[1]
+        local backpack = self.backpacks[base_id]
+
+        if backpack then
+            if user.cdata.equipped_backpack == base_id then
+                -- Unequip backpack
+                user.cdata.equipped_backpack = nil
+                vRP.EXT.Base.remote._notify(user.source, "You unequipped " .. backpack.name)
+                -- Remove backpack using tunnel
+                vRP.EXT.Inventory.remote._removeBackpack(user.source)
+            else
+                -- Check if another backpack is equipped
+                if user.cdata.equipped_backpack then
+                    vRP.EXT.Base.remote._notify(user.source, "You already have a backpack equipped")
+                else
+                    -- Equip backpack
+                    user.cdata.equipped_backpack = base_id
+                    vRP.EXT.Base.remote._notify(user.source, "You equipped " .. backpack.name)
+                    -- Attach backpack using tunnel
+                    vRP.EXT.Inventory.remote._toggleBackpack(user.source, backpack.prop_name)
+                end
+            end
+        end
+    end
+
     vRP.EXT.GUI:registerMenuBuilder("inventory.item", function(menu)
         menu.css.header_color = "rgba(0,125,255,0.75)"
 
@@ -220,6 +259,16 @@ local function menu_inventory_item(self)
         -- item menu builder
         if citem.menu_builder then
             citem.menu_builder(citem.args, menu)
+        end
+
+        -- Check if item is a backpack
+        local base_id = self:parseItem(menu.data.fullid)[1]
+        if self.backpacks[base_id] then
+            local backpack = self.backpacks[base_id]
+            local toggle_text = user.cdata.equipped_backpack == base_id and
+                "Unequip Backpack" or
+                "Equip Backpack"
+            menu:addOption(toggle_text, m_toggle_backpack, "Toggle backpack on/off")
         end
 
         -- add give/trash options
@@ -445,10 +494,11 @@ function Inventory:__construct()
     vRP.Extension.__construct(self)
 
     self.cfg = module("cfg/inventory")
+    self.backpacks = self.cfg.backpacks or {} -- Store backpacks configuration
 
-    self.items = {}          -- item definitions
-    self.computed_items = {} -- computed item definitions
-    self.chests = {}         -- loaded chests
+    self.items = {}                           -- item definitions
+    self.computed_items = {}                  -- computed item definitions
+    self.chests = {}                          -- loaded chests
 
     -- special item permission
     local function fperm_item(user, params)
@@ -495,6 +545,11 @@ function Inventory:__construct()
     local cfg_items = module("cfg/items")
     for id, v in pairs(cfg_items.items) do
         self:defineItem(id, v[1], v[2], v[3], v[4])
+    end
+
+    -- define backpack items from backpack config
+    for id, backpack in pairs(self.backpacks) do
+        self:defineItem(id, backpack.name, backpack.description, nil, backpack.weight)
     end
 end
 
@@ -620,6 +675,9 @@ function Inventory.event:characterLoad(user)
     if not user.cdata.inventory then
         user.cdata.inventory = {}
     end
+    if not user.cdata.equipped_backpack then
+        user.cdata.equipped_backpack = nil
+    end
 end
 
 function Inventory.event:playerDeath(user)
@@ -649,12 +707,13 @@ function Inventory.event:playerSpawn(user, first_spawn)
         for id, chest in pairs(self.cfg.chests or {}) do
             local weight = chest.weight or 0
             local coords = chest.coords
-            local permissions = chest.permission and { chest.permission } or {}
+            local permission = chest.permission -- keep as string, not table
 
             if coords then
                 local menu
+
                 local function enter(user)
-                    if user:hasPermissions(permissions) or user:hasFactionPermission(permissions[1]) then
+                    if not permission or user:hasPermission(permission) or user:hasFactionPermission(permission) then
                         menu = user:openChest("static:" .. id, weight)
                     end
                 end
@@ -663,7 +722,7 @@ function Inventory.event:playerSpawn(user, first_spawn)
                     if menu then user:closeMenu(menu) end
                 end
 
-                -- optional blip/marker (customize if needed)
+                -- optional blip/marker
                 local ment = {
                     "PoI", -- type
                     {
@@ -676,7 +735,6 @@ function Inventory.event:playerSpawn(user, first_spawn)
                 }
 
                 vRP.EXT.Map.remote._addEntity(user.source, ment[1], ment[2])
-
                 user:setArea("vRP:chest:" .. id, coords[1], coords[2], coords[3], 1, 1.5, enter, leave)
             end
         end

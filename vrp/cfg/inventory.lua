@@ -9,6 +9,28 @@ cfg.keep_items_on_death = { -- Keep these items on death if lose inventory is tr
     "weed"
 }
 
+-- Backpack configuration
+cfg.backpacks = {
+    ["small_backpack"] = {
+        name = "Small Backpack",
+        description = "A small backpack that increases your carrying capacity by 10kg",
+        weight = 1.0,
+        capacity_bonus = 10
+    },
+    ["medium_backpack"] = {
+        name = "Medium Backpack",
+        description = "A medium backpack that increases your carrying capacity by 15kg",
+        weight = 1.5,
+        capacity_bonus = 15
+    },
+    ["large_backpack"] = {
+        name = "Large Backpack",
+        description = "A large backpack that increases your carrying capacity by 20kg",
+        weight = 2.0,
+        capacity_bonus = 20
+    }
+}
+
 -- List of static inventories
 --[[ ["evidence"] = { -- Name of chests
     title = "Seized Items", -- Title of inventory (Will show at the top of the menu)
