@@ -4,7 +4,7 @@ if not vRP.modules.hours then return end
 
 local Hours = class("Hours", vRP.Extension)
 
-function hours:__construct()
+function Hours:__construct()
     vRP.Extension.__construct(self)
 
     Citizen.CreateThread(function()
