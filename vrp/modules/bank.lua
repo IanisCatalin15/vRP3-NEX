@@ -60,88 +60,109 @@ function Bank:__construct()
     menu:updateOption(index, nil, string.format("<br> Bank Balance: %s", formatNumber(bank_balance)))
   end
 
-  -- Menu option: Deposit at bank
+  -- Menu option: Deposit money
   local function m_deposit(menu)
     local user = menu.user
     local input = user:prompt("Enter amount to deposit:", "")
     local amount = tonumber(input) or 0
-    if amount > 0 then
-      local success, err = user:tryDeposit(amount)
-      if success then
-        vRP.EXT.Base.remote._notify(user.source, "Deposited $" .. formatNumber(amount))
-      else
-        vRP.EXT.Base.remote._notify(user.source, "Deposit failed: " .. err)
-      end
-    else
+    local user_money = user:getWallet()
+
+    if amount <= 0 then
       vRP.EXT.Base.remote._notify(user.source, "Invalid amount")
+      return
+    end
+
+    if user_money < amount then
+      vRP.EXT.Base.remote._notify(user.source, "You don't have enough cash. Wallet: $" .. formatNumber(user_money))
+      return
+    end
+
+    local success, err = user:tryDeposit(amount)
+    if success then
+      vRP.EXT.Base.remote._notify(user.source, "Deposited $" .. formatNumber(amount))
+    else
+      vRP.EXT.Base.remote._notify(user.source, "Deposit failed: " .. (err or "unknown error"))
     end
   end
 
-   -- Menu option: Withdraw (for bank and ATM)
-local function m_withdraw(menu)
-  local user = menu.user
-  local input = user:prompt("Enter amount to withdraw:", "")
-  local amount = tonumber(input)
+  -- Menu option: Withdraw (for bank and ATM)
+  local function m_withdraw(menu)
+    local user = menu.user
+    local input = user:prompt("Enter amount to withdraw:", "")
+    local amount = tonumber(input)
+    local user_bank = user:getBank()
 
-  if not amount or amount <= 0 then
-    vRP.EXT.Base.remote._notify(user.source, "Invalid amount")
-    return
+    if not amount or amount <= 0 then
+      vRP.EXT.Base.remote._notify(user.source, "Invalid amount")
+      return
+    end
+
+    amount = math.floor(amount)
+    local max_limit = 100000
+
+    if amount > max_limit then
+      vRP.EXT.Base.remote._notify(user.source, "Maximum withdrawal is $" .. formatNumber(max_limit))
+      return
+    end
+
+    if user_bank < amount then
+      vRP.EXT.Base.remote._notify(user.source, "Insufficient bank balance. Bank: $" .. formatNumber(user_bank))
+      return
+    end
+
+    local success, err = user:tryWithdraw(amount)
+    if success then
+      vRP.EXT.Base.remote._notify(user.source, "Withdrew $" .. formatNumber(amount))
+    else
+      vRP.EXT.Base.remote._notify(user.source, "Withdrawal failed: " .. (err or "unknown error"))
+    end
   end
 
-  -- Optional: round to 2 decimal places or integer
-  amount = math.floor(amount)
+  -- Menu option: Transfer funds to another user
+  local function m_transfer(menu)
+    local user = menu.user
 
-  -- Optional: enforce a max per-withdrawal limit
-  local max_limit = 100000
-  if amount > max_limit then
-    vRP.EXT.Base.remote._notify(user.source, "Maximum withdrawal is $" .. formatNumber(max_limit))
-    return
+    local target_id = tonumber(user:prompt("Enter target user ID:", ""))
+    if not target_id or target_id <= 0 then
+      vRP.EXT.Base.remote._notify(user.source, "Invalid target user ID")
+      return
+    end
+
+    if target_id == user.id then
+      vRP.EXT.Base.remote._notify(user.source, "You cannot transfer money to yourself")
+      return
+    end
+
+    local amount = tonumber(user:prompt("Enter amount to transfer:", ""))
+    if not amount or amount <= 0 then
+      vRP.EXT.Base.remote._notify(user.source, "Invalid amount")
+      return
+    end
+
+    amount = math.floor(amount)
+    local user_wallet = user:getBank()
+
+    if user_wallet < amount then
+      vRP.EXT.Base.remote._notify(user.source,
+        "You don't have enough cash to transfer. Wallet: $" .. formatNumber(user_wallet))
+      return
+    end
+
+    local target = vRP.users[target_id]
+    if not target then
+      vRP.EXT.Base.remote._notify(user.source, "Target user not found")
+      return
+    end
+
+    local success, err = user:transfer(target, amount)
+    if success then
+      vRP.EXT.Base.remote._notify(user.source, "Transferred $" .. formatNumber(amount) .. " to user " .. target_id)
+      vRP.EXT.Base.remote._notify(target.source, "Received $" .. formatNumber(amount) .. " from user " .. user.id)
+    else
+      vRP.EXT.Base.remote._notify(user.source, "Transfer failed: " .. (err or "unknown error"))
+    end
   end
-
-  local success, err = user:tryWithdraw(amount)
-  if success then
-    vRP.EXT.Base.remote._notify(user.source, "Withdrew $" .. formatNumber(amount))
-  else
-    vRP.EXT.Base.remote._notify(user.source, "Withdrawal failed: " .. err)
-  end
-end
-
--- Menu option: Transfer funds to another user
-local function m_transfer(menu)
-  local user = menu.user
-
-  local target_id = tonumber(user:prompt("Enter target user ID:", ""))
-  if not target_id or target_id <= 0 then
-    vRP.EXT.Base.remote._notify(user.source, "Invalid target user ID")
-    return
-  end
-
-  if target_id == user.id then
-    vRP.EXT.Base.remote._notify(user.source, "You cannot transfer money to yourself")
-    return
-  end
-
-  local amount = tonumber(user:prompt("Enter amount to transfer:", ""))
-  if not amount or amount <= 0 then
-    vRP.EXT.Base.remote._notify(user.source, "Invalid amount")
-    return
-  end
-
-  local target = vRP.users[target_id]
-  if not target then
-    vRP.EXT.Base.remote._notify(user.source, "Target user not found")
-    return
-  end
-
-  local success, err = user:transfer(target, amount)
-  if success then
-    vRP.EXT.Base.remote._notify(user.source, "Transferred $" .. formatNumber(amount) .. " to user " .. target_id)
-    vRP.EXT.Base.remote._notify(target.source, "Received $" .. formatNumber(amount) .. " from user " .. user.id)
-  else
-    vRP.EXT.Base.remote._notify(user.source, "Transfer failed: " .. err)
-  end
-end
-
+  
   -- Register bank menu
   vRP.EXT.GUI:registerMenuBuilder("bank", function(menu)
     local user = vRP.users_by_source[menu.user.source]
